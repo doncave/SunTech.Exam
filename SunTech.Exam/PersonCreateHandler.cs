@@ -12,14 +12,14 @@ using Microsoft.Extensions.Logging;
 
 namespace SunTech.Exam
 {
-    public class PersonWriteHandler : FunctionBase
+    public class PersonCreateHandler : FunctionBase
     {
-        public PersonWriteHandler(CosmosClient cosmosClient)
+        public PersonCreateHandler(CosmosClient cosmosClient)
         {
             CosmosClient = cosmosClient;
         }
 
-        [FunctionName("PersonWriteHandler")]
+        [FunctionName("PersonCreateHandler")]
         public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "person")] HttpRequest req,
             ILogger log)
         {
