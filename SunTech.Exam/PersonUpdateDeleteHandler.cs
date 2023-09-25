@@ -7,29 +7,54 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Microsoft.Azure.Cosmos;
+using SunTech.Exam.Model;
 
 namespace SunTech.Exam
 {
-    public static class PersonUpdateDeleteHandler
+    public class PersonUpdateDeleteHandler : FunctionBase
     {
-        [FunctionName("PersonUpdateDeleteHandler")]
-        public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
-            ILogger log)
+        public PersonUpdateDeleteHandler(CosmosClient cosmosClient)
         {
-            log.LogInformation("C# HTTP trigger function processed a request.");
+            CosmosClient = cosmosClient;
+        }
 
-            string name = req.Query["name"];
+        [FunctionName("PersonUpdateDeleteHandler")]
+        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Anonymous, "put", "delete", Route = "person/{id}/lastname/{lastname}")] 
+            HttpRequest req, ILogger log, string id, string lastname)
+        {
+            await InitDatabase();
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
+            if (req.Method == HttpMethods.Put)
+            {
+                try
+                {
+                    string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+                    var person = JsonConvert.DeserializeObject<Person>(requestBody);
 
-            string responseMessage = string.IsNullOrEmpty(name)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {name}. This HTTP triggered function executed successfully.";
+                    ItemResponse<Person> personResponse = await Container.ReadItemAsync<Person>(id, new PartitionKey(lastname));
+                    var itemBody = personResponse.Resource;
 
-            return new OkObjectResult(responseMessage);
+                    itemBody.FirstName = person.FirstName; 
+                    itemBody.LastName = person.LastName;
+                    itemBody.BirthdayInEpoch = person.BirthdayInEpoch;
+
+                    // replace the item with the updated content
+                    personResponse = await Container.ReplaceItemAsync<Person>(itemBody, itemBody.Id, new PartitionKey(itemBody.PartitionKey));
+
+                    return new OkObjectResult(person);
+                }
+                catch (Exception ex)
+                {
+                    log.LogError(ex.Message);
+                }
+            }
+            else if (req.Method == HttpMethods.Delete)
+            {
+
+            }
+
+            return null;
         }
     }
 }
